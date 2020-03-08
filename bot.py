@@ -5,6 +5,11 @@ import random
 import re
 import datetime
 import calendar
+import asyncio
+import time
+import ffmpeg
+from gtts import gTTS
+from tts import tts
 
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
@@ -26,6 +31,22 @@ async def on_message(message):
         await message.channel.send(response)
     elif message.content == 'raise-exception':
         raise discord.DiscordException
+
+@bot.event
+async def on_message(message):
+    if message.author == bot.user:
+        return
+
+    if message.content == 'raise-exception':
+        raise discord.DiscordException
+
+
+# error handling
+@bot.event
+async def on_error(event, *args, **kwargs):
+    with open('err.log', 'a') as f:
+        if event == 'on_message':
+            f.write(f'Unhandled message: {args[0]}\n\n')
 '''
 
 @bot.event
@@ -42,6 +63,7 @@ async def on_member_join(member):
 
 @bot.command(name='inspire', help="Delivers an inspirational quote just like Dani")
 async def quote(ctx):
+    filename = 'quote_tts'
     # parse http request
     page = requests.get('https://www.insightoftheday.com')
     soup = BeautifulSoup(page.text, 'html.parser')
@@ -52,6 +74,9 @@ async def quote(ctx):
     quote_contents = daily_post.find('div', class_='quote').find('img')
     quote_text = quote_contents.attrs.get('alt').split(': ', 1)[1].rsplit('\xa0', 1)[0]
 
+    # create mp3 file from quote_text
+    tts(quote_text, filename)
+
     # write message
     embed = discord.Embed(title=f'{calendar.day_name[datetime.datetime.today().weekday()]}\'s Inspirational Quote', description="Are you feeling motivated?", color=0x00ff00)
     embed.add_field(name="Quote", value=quote_text)
@@ -59,7 +84,18 @@ async def quote(ctx):
     #embed.set_footer(text='You are out of my LOS', icon_url=quote_contents.attrs.get('src'))
     #embed.set_footer(text='You are out of my LOS')
     embed.set_footer(text=author)
-    await ctx.send(embed=embed)
+    await ctx.send(embed=embed, tts=False)
+    #await ctx.voice_client.disconnect()
+
+    # activate text to speech
+    channel = ctx.author.voice.channel
+    vc = await channel.connect()
+    vc.play(discord.FFmpegPCMAudio(f'{filename}.mp3'), after=lambda e: print('done', e))
+    while vc.is_playing():
+        await asyncio.sleep(1)
+    vc.stop()
+    await vc.disconnect()
+    #os.remove(f'{filename}.mp3')
 
 
 @bot.command(name='roll')
@@ -74,24 +110,8 @@ async def roll(ctx, number_of_dice: int=1, number_of_sides: int=6):
     else:
         await ctx.send(response)
 
-
-
-@bot.event
-async def on_message(message):
-    if message.author == client.user:
-        return
-
-    if message.content == 'raise-exception':
-        raise discord.DiscordException
-
-
-# error handling
-@bot.event
-async def on_error(event, *args, **kwargs):
-    with open('err.log', 'a') as f:
-        if event == 'on_message':
-            f.write(f'Unhandled message: {args[0]}\n\n')
-        else:
-            raise
+@bot.command(name='hello')
+async def hello(ctx):
+    print('hello!')
 
 bot.run(token)
