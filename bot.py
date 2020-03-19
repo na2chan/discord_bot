@@ -8,12 +8,13 @@ import calendar
 import asyncio
 import time
 import ffmpeg
-from gtts import gTTS
-from tts import tts
+import youtube_dl
 
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from discord.ext import commands
+from tts import tts
+from youtube import YTDLSource
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -61,7 +62,7 @@ async def on_member_join(member):
         f'Hi {member.name}, welcome to my Discord server!'
     )
 
-@bot.command(name='inspire', help="Delivers an inspirational quote just like Dani")
+@bot.command(name='inspire', help="Delivers an inspirational quote just like Dani!")
 async def quote(ctx):
     filename = 'quote_tts'
     # parse http request
@@ -95,7 +96,7 @@ async def quote(ctx):
         await asyncio.sleep(1)
     vc.stop()
     await vc.disconnect()
-    #os.remove(f'{filename}.mp3')
+    os.remove(f'{filename}.mp3')
 
 
 @bot.command(name='roll')
@@ -113,5 +114,25 @@ async def roll(ctx, number_of_dice: int=1, number_of_sides: int=6):
 @bot.command(name='hello')
 async def hello(ctx):
     print('hello!')
+
+# play music from youtube URL
+@bot.command(name='play')
+async def play(ctx, url):
+    async with ctx.typing():
+        # set stream to false -> predownloads files (good if internet isn't great)
+        player = await YTDLSource.from_url(url, loop=bot.loop, stream=True)
+        ctx.voice_client.play(player, after=lambda e: print('Player error: %s' % e) if e else None)
+    await ctx.send('Now playing: {}'.format(player.title))
+
+@play.before_invoke
+async def ensure_voice(ctx):
+    if ctx.voice_client is None:
+        if ctx.author.voice:
+            await ctx.author.voice.channel.connect()
+        else:
+            await ctx.send("You are not connected to a voice channel.")
+            raise commands.CommandError("Author not connected to a voice channel.")
+    elif ctx.voice_client.is_playing():
+        ctx.voice_client.stop()
 
 bot.run(token)
