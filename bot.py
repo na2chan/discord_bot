@@ -120,7 +120,7 @@ async def hello(ctx):
 async def play(ctx, url):
     async with ctx.typing():
         # set stream to false -> predownloads files (good if internet isn't great)
-        player = await YTDLSource.from_url(url, loop=bot.loop, stream=True)
+        player = await YTDLSource.from_url(url, loop=bot.loop)
         ctx.voice_client.play(player, after=lambda e: print('Player error: %s' % e) if e else None)
     await ctx.send('Now playing: {}'.format(player.title))
 
