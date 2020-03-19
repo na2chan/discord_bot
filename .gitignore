@@ -1,2 +1,5 @@
 err.log
 __pycache__
+.env
+*.mp3
+*.webm
